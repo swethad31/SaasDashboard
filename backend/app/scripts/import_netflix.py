@@ -1,14 +1,4 @@
-"""Import the Netflix Excel dataset into MySQL.
 
-Workflow:
-Netflix Excel file -> pandas reads Excel -> rows inserted into MySQL
-
-Rules implemented:
-- Replace NaN values with empty strings.
-- Ignore duplicates using `show_id` uniqueness.
-- Insert commits to database.
-- Adds basic logging.
-"""
 
 import os
 from typing import Any
