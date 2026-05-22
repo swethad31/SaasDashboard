@@ -2,8 +2,6 @@ from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, Float
 from sqlalchemy.sql import func
 from ..core.db import Base
 
-# NOTE: keep existing models file as-is for compatibility.
-# `NetflixTitle` lives in `app/models/netflix_title.py`.
 
 
 
