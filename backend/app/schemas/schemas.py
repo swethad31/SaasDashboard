@@ -25,7 +25,7 @@ class UserRead(UserBase):
     is_active: bool
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class UserUpdate(BaseModel):
@@ -38,9 +38,23 @@ class DashboardCard(BaseModel):
     value: float
 
 
+class DeviceUsage(BaseModel):
+    name: str
+    value: float
+
+
+class TopContentItem(BaseModel):
+    title: str
+    views: str
+    conv: str
+    trend: str
+
+
 class AnalyticsData(BaseModel):
     labels: List[str]
     series: List[float]
+    devices: List[DeviceUsage]
+    topContent: List[TopContentItem]
 
 
 class RevenueStats(BaseModel):
@@ -49,15 +63,17 @@ class RevenueStats(BaseModel):
     growth: float
 
 
+from datetime import datetime
+
 class ActivityItem(BaseModel):
     id: int
     user_id: int
     action: str
     amount: float
-    created_at: Optional[str]
+    created_at: Optional[datetime] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class ReportBase(BaseModel):
@@ -70,7 +86,7 @@ class ReportRead(ReportBase):
     data: Optional[str]
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class SettingRead(BaseModel):
@@ -79,7 +95,7 @@ class SettingRead(BaseModel):
     value: Optional[str]
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class ProfileUpdate(BaseModel):
