@@ -1,0 +1,31 @@
+.main-layout {
+  display: flex;
+  height: 100vh;
+  background: var(--bg);
+}
+
+.main-layout__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin-left: var(--sidebar-w);
+  transition: margin-left 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+
+.main-layout__body.collapsed {
+  margin-left: var(--sidebar-w-collapsed);
+}
+
+.main-content {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+@media (max-width: 768px) {
+  .main-layout__body {
+    margin-left: 0 !important;
+  }
+}

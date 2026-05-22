@@ -1,0 +1,118 @@
+:root {
+  --growth-bg: #141728;
+  --growth-border: rgba(255, 255, 255, 0.06);
+  --growth-shadow: 0 10px 40px rgba(0, 0, 0, 0.18);
+  --growth-text: #e8eaf6;
+  --growth-muted: #8a8fa8;
+  --growth-badge-bg: rgba(255, 255, 255, 0.06);
+  --growth-badge-border: rgba(255, 255, 255, 0.1);
+  --growth-tooltip-bg: #1e2140;
+  --growth-tooltip-border: rgba(255, 45, 111, 0.4);
+  --growth-tooltip-label: #8a8fa8;
+  --growth-tooltip-value: #ff2d6f;
+  --growth-tooltip-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+:root[data-theme="light"] {
+  --growth-bg: #ffffff;
+  --growth-border: rgba(15, 23, 42, 0.1);
+  --growth-shadow: 0 10px 40px rgba(15, 23, 42, 0.08);
+  --growth-text: #0f172a;
+  --growth-muted: #475569;
+  --growth-badge-bg: rgba(15, 23, 42, 0.04);
+  --growth-badge-border: rgba(15, 23, 42, 0.12);
+  --growth-tooltip-bg: rgba(255, 255, 255, 0.98);
+  --growth-tooltip-border: rgba(239, 68, 68, 0.15);
+  --growth-tooltip-label: #6b7280;
+  --growth-tooltip-value: #be185d;
+  --growth-tooltip-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
+}
+
+/* ── Card wrapper ──────────────────────────────────────────────────────────── */
+.gc-card {
+  background: var(--growth-bg);
+  border-radius: 20px;
+  padding: 38px 44px 40px;
+  border: 1px solid var(--growth-border);
+  box-shadow: var(--growth-shadow);
+  min-height: 360px; /* slightly taller to match screenshot */
+
+  /* Take full width of parent grid cell */
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* ── Header row (title + badge) ────────────────────────────────────────────── */
+.gc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.gc-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--growth-text);
+  margin: 0;
+  letter-spacing: 0.3px;
+}
+
+/* Small pill button that mimics the "Months ▾" dropdown in the screenshot */
+.gc-badge {
+  font-size: 11px;
+  color: var(--growth-muted);
+  background: var(--growth-badge-bg);
+  border: 1px solid var(--growth-badge-border);
+  border-radius: 20px;
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+  user-select: none;
+}
+
+.gc-badge:hover {
+  background: rgba(15, 23, 42, 0.08);
+  color: var(--growth-text);
+}
+
+/* ── Custom tooltip ────────────────────────────────────────────────────────── */
+.gc-tooltip {
+  background: var(--growth-tooltip-bg);
+  border: 1px solid var(--growth-tooltip-border);
+  border-radius: 10px;
+  padding: 10px 16px;
+  box-shadow: var(--growth-tooltip-shadow);
+}
+
+.gc-tooltip-label {
+  font-size: 11px;
+  color: var(--growth-tooltip-label);
+  margin: 0 0 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.gc-tooltip-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--growth-tooltip-value);
+  margin: 0;
+}
+
+/* ── Recharts overrides (target SVG text elements) ─────────────────────────── */
+/* Prevents Recharts from adding an unwanted white rectangle behind the chart  */
+.recharts-surface {
+  overflow: visible;
+}
+
+/* ── Responsive ────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .gc-card {
+    padding: 16px 12px 12px;
+  }
+
+  .gc-title {
+    font-size: 14px;
+  }
+}
