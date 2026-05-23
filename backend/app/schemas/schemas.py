@@ -98,11 +98,51 @@ class SettingRead(BaseModel):
         from_attributes = True
 
 
+# ---- Profile & Settings (per-user) ----
 class ProfileUpdate(BaseModel):
-    full_name: Optional[str]
-    email: Optional[EmailStr]
+    full_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    location: Optional[str] = None
+    bio: Optional[str] = None
+    role: Optional[str] = None
+    plan: Optional[str] = None
+
+
+class UserProfile(BaseModel):
+    id: int
+    email: EmailStr
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+    location: Optional[str] = None
+    bio: Optional[str] = None
+    role: Optional[str] = "Administrator"
+    plan: Optional[str] = "Enterprise"
+    is_active: bool = True
+
+    class Config:
+        from_attributes = True
+
+
+class NotifSettings(BaseModel):
+    email: bool = True
+    push: bool = False
+    marketing: bool = False
+    security: bool = True
+
+
+class AccountPrefs(BaseModel):
+    twoFactor: bool = False
+    publicProfile: bool = True
+    dataSharing: bool = False
+
+
+class UserSettings(BaseModel):
+    notifs: NotifSettings = NotifSettings()
+    account: AccountPrefs = AccountPrefs()
 
 
 class PasswordChange(BaseModel):
     old_password: str
     new_password: str
+

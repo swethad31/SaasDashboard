@@ -6,6 +6,7 @@ import {
   FiChevronLeft, FiChevronRight, FiX, FiZap
 } from "react-icons/fi";
 import "./SideBar.css";
+import { useAuth } from "../../context/AuthContext";
 
 const navItems = [
   { to: "/", icon: <FiGrid />, label: "Dashboard" },
@@ -24,7 +25,9 @@ const bottomItems = [
 
 export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const [showLogout, setShowLogout] = useState(false);
+
 
   const cls = `sidebar${collapsed ? " collapsed" : ""}${mobileOpen ? " mobile-open" : ""}`;
 
@@ -93,7 +96,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
 
       {/* Logout Modal */}
       {showLogout && (
-        <LogoutModal onClose={() => setShowLogout(false)} onConfirm={() => { setShowLogout(false); navigate("/"); }} />
+        <LogoutModal onClose={() => setShowLogout(false)} onConfirm={() => { setShowLogout(false); logout(); }} />
       )}
     </>
   );

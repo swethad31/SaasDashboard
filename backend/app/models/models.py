@@ -1,7 +1,6 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, Float
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, Float, JSON, ForeignKey
 from sqlalchemy.sql import func
 from ..core.db import Base
-
 
 
 
@@ -17,24 +16,19 @@ class User(Base):
         nullable=False
     )
 
-    full_name = Column(
-        String(100),
-        nullable=True
-    )
+    full_name = Column(String(100), nullable=True)
+    phone = Column(String(30), nullable=True)
+    location = Column(String(150), nullable=True)
+    bio = Column(Text, nullable=True)
+    role = Column(String(50), default="Administrator")
+    plan = Column(String(50), default="Enterprise")
 
     is_active = Column(Boolean, default=True)
-
     is_superuser = Column(Boolean, default=False)
 
-    hashed_password = Column(
-        String(255),
-        nullable=False
-    )
+    hashed_password = Column(String(255), nullable=False)
 
-    created_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now()
-    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 class Setting(Base):
@@ -42,18 +36,32 @@ class Setting(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
-    key = Column(
-        String(100),
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
         unique=True,
-        index=True,
-        nullable=False
     )
 
+    # legacy columns (may exist from old schema)
+    key = Column(String(100), nullable=True)
     value = Column(Text, nullable=True)
+
+    notifs = Column(JSON, nullable=True)
+    account_prefs = Column(JSON, nullable=True)
+
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
 
 
 class Report(Base):
     __tablename__ = "reports"
+
 
     id = Column(Integer, primary_key=True, index=True)
 

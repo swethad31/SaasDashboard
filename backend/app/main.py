@@ -12,7 +12,15 @@ from .models.netflix_title import NetflixTitle
 
 
 def create_tables():
-    Base.metadata.create_all(bind=engine)
+    try:
+        Base.metadata.create_all(bind=engine)
+        print("[startup] Database tables created/verified OK.")
+    except Exception as e:
+        # Prevent DB connectivity issues from killing the whole API process.
+        # Excel-based analytics and other public endpoints should still work.
+        print(f"[startup] WARNING: Could not connect to database: {e}")
+        print("[startup] Analytics (Excel-based) will still work. DB features require MySQL.")
+
 
 
 @asynccontextmanager

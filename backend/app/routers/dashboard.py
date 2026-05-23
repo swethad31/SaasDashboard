@@ -18,9 +18,10 @@ import pandas as pd
 router = APIRouter(prefix="/dashboard", tags=["dashboard"], dependencies=[Depends(get_current_user)])
 public_router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
-EXCEL_PATH = os.path.join(
+EXCEL_PATH = os.path.normpath(os.path.join(
     os.path.dirname(__file__), "..", "..", "..", "src", "data", "netflix_titles.xlsx"
-)
+))
+
 
 
 @router.get("/cards", response_model=List[DashboardCard])
@@ -33,8 +34,9 @@ def get_cards(db: Session = Depends(get_db)):
     return cards
 
 
-@public_router.get("/analytics", response_model=AnalyticsData)
+@public_router.get("/analytics")
 def analytics():
+
     try:
         df = pd.read_excel(EXCEL_PATH)
 
@@ -88,13 +90,16 @@ def analytics():
         }
 
     except Exception as e:
-        print(f"[analytics] Error reading Excel: {e}")
+        print(f"[analytics] FATAL ERROR: {e}")
+        import traceback
+        traceback.print_exc()
         return {
             "labels": [],
             "series": [],
             "devices": [],
             "topContent": [],
         }
+
 
 
 @router.get("/revenue", response_model=RevenueStats)

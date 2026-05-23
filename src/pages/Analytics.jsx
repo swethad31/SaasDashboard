@@ -1,8 +1,5 @@
 import { useEffect, useState } from "react";
-import api from "../services/api";
-
-
-
+import axios from "axios";
 import {
   BarChart,
   Bar,
@@ -16,114 +13,140 @@ import {
   Cell,
   Legend,
 } from "recharts";
+import { PageHeader, StatCard, Card } from "../components/common/PageLayout";
+import { FiEye, FiUsers } from "react-icons/fi";
 
-import {
-  PageHeader,
-  StatCard,
-  Card,
-} from "../components/common/PageLayout";
-
-import {
-  FiEye,
-  FiUsers,
-} from "react-icons/fi";
-
-const COLORS = [
-  "var(--accent)",
-  "var(--accent-2)",
-  "var(--accent-orange)",
-];
+const COLORS = ["var(--accent)", "var(--accent-2)", "var(--accent-orange)"];
 
 export default function Analytics() {
-  const [analytics, setAnalytics] = useState({
-    labels: [],
-    series: [],
-    devices: [],
-    topContent: [],
-  });
-
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    api
-      .get("/dashboard/analytics")
+    axios
+      .get("/api/dashboard/analytics")
       .then((res) => {
-        setAnalytics({
-          labels: res.data?.labels || [],
-          series: res.data?.series || [],
-          devices: res.data?.devices || [],
-          topContent: res.data?.topContent || [],
-        });
-
+        const d = res.data;
+        if (!d || !Array.isArray(d.labels) || d.labels.length === 0) {
+          setError(
+            "Backend returned empty data. Check that uvicorn is running and the Excel file path is correct. See backend console for details."
+          );
+          setLoading(false);
+          return;
+        }
+        setData(d);
         setLoading(false);
       })
       .catch((err) => {
-        console.error("Analytics fetch failed:", err?.response?.status, err?.message);
-        setError("Failed to load analytics");
+        const status = err?.response?.status;
+        const msg = err?.message;
+        setError(
+          `API call failed (HTTP ${status || "no response"}: ${msg}). Is the backend running on port 8000?`
+        );
         setLoading(false);
       });
   }, []);
 
-  const growthData = analytics.labels.map((label, i) => ({
-    month: label,
-    titles: analytics.series[i] || 0,
+  if (loading)
+    return (
+      <div
+        style={{
+          padding: 40,
+          color: "var(--text-muted)",
+          fontSize: 14,
+        }}
+      >
+        Loading analytics...
+      </div>
+    );
+
+  if (error)
+    return (
+      <div style={{ padding: 40 }}>
+        <div
+          style={{
+            background: "rgba(239,68,68,0.1)",
+            border: "1px solid rgba(239,68,68,0.4)",
+            borderRadius: 8,
+            padding: "16px 20px",
+            color: "#ef4444",
+            fontSize: 13,
+            lineHeight: 1.6,
+          }}
+        >
+          <strong>⚠ Analytics failed to load</strong>
+          <br />
+          {error}
+        </div>
+      </div>
+    );
+
+  const barData = data.labels.map((label, i) => ({
+    year: label,
+    titles: data.series[i] || 0,
   }));
 
-  if (loading) {
-    return <div>Loading analytics...</div>;
-  }
+  const total = data.series.reduce((a, b) => a + b, 0);
 
   return (
     <div>
       <PageHeader
         title="Analytics"
-        subtitle="Traffic, conversions, and user behavior insights."
+        subtitle="Netflix titles breakdown by year, type, and country."
       />
 
       <div className="stat-cards-grid">
         <StatCard
           title="Total Titles"
-          value={analytics.series.reduce(
-            (a, b) => a + b,
-            0
-          )}
+          value={total.toLocaleString()}
           icon={<FiEye />}
           color="var(--accent)"
         />
-
         <StatCard
-          title="Years"
-          value={analytics.labels.length}
+          title="Years Covered"
+          value={data.labels.length}
           icon={<FiUsers />}
           color="var(--accent-2)"
         />
       </div>
 
-      <div
-        className="two-col"
-        style={{ marginBottom: 20 }}
-      >
-        <Card title="Titles by Year">
-          <ResponsiveContainer
-            width="100%"
-            height={300}
-          >
-            <BarChart data={growthData}>
-              <CartesianGrid strokeDasharray="3 3" />
-
-              <XAxis dataKey="month" />
-
-              <YAxis />
-
-              <Tooltip />
-
-              <Legend />
-
+      <div style={{ marginBottom: 16 }}>
+        <Card title="Titles by Release Year">
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart
+              data={barData}
+              margin={{ top: 10, right: 20, left: 0, bottom: 50 }}
+            >
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="var(--border)"
+              />
+              <XAxis
+                dataKey="year"
+                tick={{ fill: "var(--text-muted)", fontSize: 10 }}
+                angle={-45}
+                textAnchor="end"
+                interval={4}
+                axisLine={false}
+              />
+              <YAxis
+                tick={{ fill: "var(--text-muted)", fontSize: 11 }}
+                axisLine={false}
+              />
+              <Tooltip
+                contentStyle={{
+                  background: "var(--bg-surface)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 8,
+                  fontSize: 12,
+                }}
+              />
               <Bar
                 dataKey="titles"
                 fill="var(--accent)"
-                radius={[6, 6, 0, 0]}
+                radius={[4, 4, 0, 0]}
+                name="Titles"
               />
             </BarChart>
           </ResponsiveContainer>
@@ -131,62 +154,57 @@ export default function Analytics() {
       </div>
 
       <div className="two-col">
-        <Card title="Device Usage">
-          <ResponsiveContainer
-            width="100%"
-            height={300}
-          >
+        <Card title="Content Type">
+          <ResponsiveContainer width="100%" height={280}>
             <PieChart>
               <Pie
-                data={analytics.devices}
+                data={data.devices}
                 dataKey="value"
+                nameKey="name"
                 innerRadius={60}
-                outerRadius={90}
+                outerRadius={95}
+                paddingAngle={4}
+                label={({ name, percent }) =>
+                  `${name} ${(percent * 100).toFixed(0)}%`
+                }
               >
-                {analytics.devices.map((entry, index) => (
+                {data.devices.map((_, i) => (
                   <Cell
-                    key={index}
-                    fill={COLORS[index % COLORS.length]}
+                    key={i}
+                    fill={COLORS[i % COLORS.length]}
                   />
                 ))}
               </Pie>
-
-              <Tooltip />
-
+              <Tooltip
+                contentStyle={{
+                  background: "var(--bg-surface)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 8,
+                  fontSize: 12,
+                }}
+              />
               <Legend />
             </PieChart>
           </ResponsiveContainer>
         </Card>
 
-        <Card title="Top Performing Content">
+        <Card title="Top Countries">
           <table className="data-table">
             <thead>
               <tr>
-                <th>Page</th>
-                <th>Views</th>
-                <th>Conv.</th>
+                <th>Country</th>
+                <th>Titles</th>
+                <th>Share</th>
               </tr>
             </thead>
-
             <tbody>
-              {analytics.topContent.map((item, index) => (
-                <tr key={index}>
-                  <td>{item.title}</td>
-
-                  <td>{item.views}</td>
-
-                  <td>
-                    <span
-                      style={{
-                        color:
-                          item.trend === "up"
-                            ? "limegreen"
-                            : "red",
-                      }}
-                    >
-                      {item.conv}
-                    </span>
+              {data.topContent.map((item, i) => (
+                <tr key={i}>
+                  <td style={{ color: "var(--text)", fontWeight: 500 }}>
+                    {item.title}
                   </td>
+                  <td>{Number(item.views).toLocaleString()}</td>
+                  <td style={{ color: "var(--accent)" }}>{item.conv}</td>
                 </tr>
               ))}
             </tbody>
@@ -196,3 +214,4 @@ export default function Analytics() {
     </div>
   );
 }
+

@@ -1,16 +1,24 @@
 import axios from "axios";
 
 const api = axios.create({
-	baseURL: "/api", // Proxy to backend, or set full URL if needed
+  baseURL: "http://127.0.0.1:8000",
 });
 
-// Optionally add token to headers for authenticated requests
 export function setAuthToken(token) {
-	if (token) {
-		api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-	} else {
-		delete api.defaults.headers.common["Authorization"];
-	}
+  if (token) {
+    api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+  } else {
+    delete api.defaults.headers.common["Authorization"];
+  }
 }
 
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("nexus_token");
+  if (token && !config.headers["Authorization"]) {
+    config.headers["Authorization"] = `Bearer ${token}`;
+  }
+  return config;
+});
+
 export default api;
+
