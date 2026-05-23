@@ -10,47 +10,30 @@ function Toggle({ checked, onChange }) {
     <button
       onClick={() => onChange(!checked)}
       style={{
-        width: 44,
-        height: 24,
-        borderRadius: 12,
+        width: 44, height: 24, borderRadius: 12,
         background: checked ? "var(--accent)" : "var(--surface-strong)",
-        border: "1px solid var(--border)",
-        position: "relative",
-        transition: "background 0.2s",
-        flexShrink: 0,
+        border: "1px solid var(--border)", position: "relative",
+        transition: "background 0.2s", flexShrink: 0,
       }}
     >
-      <span
-        style={{
-          position: "absolute",
-          top: 2,
-          left: checked ? 22 : 2,
-          width: 18,
-          height: 18,
-          borderRadius: "50%",
-          background: checked ? "#070b14" : "var(--text-muted)",
-          transition: "left 0.2s",
-        }}
-      />
+      <span style={{
+        position: "absolute", top: 2, left: checked ? 22 : 2,
+        width: 18, height: 18, borderRadius: "50%",
+        background: checked ? "#070b14" : "var(--text-muted)",
+        transition: "left 0.2s",
+      }} />
     </button>
   );
 }
 
 function SettingRow({ label, desc, checked, onChange }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "14px 0",
-        borderBottom: "1px solid var(--border)",
-      }}
-    >
+    <div style={{
+      display: "flex", alignItems: "center", justifyContent: "space-between",
+      padding: "14px 0", borderBottom: "1px solid var(--border)",
+    }}>
       <div>
-        <div style={{ fontSize: 14, fontWeight: 500, color: "var(--text)", marginBottom: 2 }}>
-          {label}
-        </div>
+        <div style={{ fontSize: 14, fontWeight: 500, color: "var(--text)", marginBottom: 2 }}>{label}</div>
         {desc && <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{desc}</div>}
       </div>
       <Toggle checked={checked} onChange={onChange} />
@@ -63,39 +46,193 @@ const DEFAULT_SETTINGS = {
   account: { twoFactor: false, publicProfile: true, dataSharing: false },
 };
 
+const STORAGE_KEYS = {
+  email: "emailNotifs",
+  push: "pushNotifs",
+  marketing: "marketingEmails",
+  security: "securityAlerts",
+  twoFactor: "twoFactor",
+  publicProfile: "publicProfile",
+  dataSharing: "dataSharing",
+};
+
+function readStoredBool(key, fallback) {
+  const value = localStorage.getItem(key);
+  if (value === null) return fallback;
+  return value === "true";
+}
+
+function writeStoredBool(key, value) {
+  localStorage.setItem(key, value ? "true" : "false");
+  window.dispatchEvent(new StorageEvent("storage", { key, newValue: value ? "true" : "false" }));
+}
+
+function readSettingsFromLocalStorage() {
+  return {
+    notifs: {
+      email: readStoredBool(STORAGE_KEYS.email, DEFAULT_SETTINGS.notifs.email),
+      push: readStoredBool(STORAGE_KEYS.push, DEFAULT_SETTINGS.notifs.push),
+      marketing: readStoredBool(STORAGE_KEYS.marketing, DEFAULT_SETTINGS.notifs.marketing),
+      security: readStoredBool(STORAGE_KEYS.security, DEFAULT_SETTINGS.notifs.security),
+    },
+    account: {
+      twoFactor: readStoredBool(STORAGE_KEYS.twoFactor, DEFAULT_SETTINGS.account.twoFactor),
+      publicProfile: readStoredBool(STORAGE_KEYS.publicProfile, DEFAULT_SETTINGS.account.publicProfile),
+      dataSharing: readStoredBool(STORAGE_KEYS.dataSharing, DEFAULT_SETTINGS.account.dataSharing),
+    },
+  };
+}
+
+function persistSettingsToLocalStorage(next) {
+  writeStoredBool(STORAGE_KEYS.email, next.notifs.email);
+  writeStoredBool(STORAGE_KEYS.push, next.notifs.push);
+  writeStoredBool(STORAGE_KEYS.marketing, next.notifs.marketing);
+  writeStoredBool(STORAGE_KEYS.security, next.notifs.security);
+  writeStoredBool(STORAGE_KEYS.twoFactor, next.account.twoFactor);
+  writeStoredBool(STORAGE_KEYS.publicProfile, next.account.publicProfile);
+  writeStoredBool(STORAGE_KEYS.dataSharing, next.account.dataSharing);
+}
+
 export default function Settings() {
   const { theme, toggleTheme } = useContext(ThemeContext);
   const { user, saveUser } = useAuth();
 
-  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState(() => readSettingsFromLocalStorage());
   const [form, setForm] = useState({ name: "", email: "" });
   const [saved, setSaved] = useState(false);
+  const [toasts, setToasts] = useState([]);
+  const [twoFactorSetupOpen, setTwoFactorSetupOpen] = useState(false);
+  const [twoFactorCode, setTwoFactorCode] = useState("");
+  const [confirmDisable2FA, setConfirmDisable2FA] = useState(false);
 
   useEffect(() => {
     setForm({ name: user?.name || "", email: user?.email || "" });
   }, [user]);
 
   useEffect(() => {
-    api
-      .get("/settings/")
-      .then((res) => {
+    async function loadSettings() {
+      const localSettings = readSettingsFromLocalStorage();
+      try {
+        const res = await api.get("/settings/");
         setSettings({
-          notifs: res.data.notifs || DEFAULT_SETTINGS.notifs,
-          account: res.data.account || DEFAULT_SETTINGS.account,
+          notifs: { ...localSettings.notifs, ...(res.data?.notifs || {}) },
+          account: { ...localSettings.account, ...(res.data?.account || {}) },
         });
-      })
-      .catch((e) => {
-        console.error("Settings load failed", e);
-      });
+      } catch (e) {
+        setSettings(localSettings);
+      }
+    }
+
+    loadSettings();
   }, []);
 
-  function updateSettings(patch) {
-    const next = { ...settings, ...patch };
-    setSettings(next);
+  function showToast(message, type = "success") {
+    const id = `${Date.now()}-${Math.random()}`;
+    setToasts((current) => [...current.slice(-2), { id, message, type }]);
+    setTimeout(() => {
+      setToasts((current) => current.filter((toast) => toast.id !== id));
+    }, 3000);
+  }
 
-    api.put("/settings/", next).catch((e) => {
-      console.error("Settings save failed", e);
-    });
+  function saveSettings(next) {
+    setSettings(next);
+    persistSettingsToLocalStorage(next);
+    api.put("/settings/", next).catch(() => {});
+  }
+
+  function handleEmailNotifications(enabled) {
+    const next = { ...settings, notifs: { ...settings.notifs, email: enabled } };
+    saveSettings(next);
+    showToast(enabled
+      ? `Email notifications enabled. You'll receive updates at ${user?.email || form.email || "your email"}.`
+      : "Email notifications disabled.");
+  }
+
+  async function handlePushNotifications(enabled) {
+    if (!enabled) {
+      const next = { ...settings, notifs: { ...settings.notifs, push: false } };
+      saveSettings(next);
+      showToast("Push notifications disabled.");
+      return;
+    }
+
+    if (!("Notification" in window)) {
+      showToast("Browser permission denied. Please allow notifications in your browser settings.", "warning");
+      return;
+    }
+
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission === "granted") {
+        const next = { ...settings, notifs: { ...settings.notifs, push: true } };
+        saveSettings(next);
+        showToast("Push notifications enabled.");
+      } else {
+        const next = { ...settings, notifs: { ...settings.notifs, push: false } };
+        saveSettings(next);
+        showToast("Browser permission denied. Please allow notifications in your browser settings.", "warning");
+      }
+    } catch (e) {
+      const next = { ...settings, notifs: { ...settings.notifs, push: false } };
+      saveSettings(next);
+      showToast("Browser permission denied. Please allow notifications in your browser settings.", "warning");
+    }
+  }
+
+  function handleMarketingEmails(enabled) {
+    const next = { ...settings, notifs: { ...settings.notifs, marketing: enabled } };
+    saveSettings(next);
+    showToast(enabled ? "Marketing emails enabled." : "Marketing emails disabled.");
+  }
+
+  function handleSecurityAlerts(enabled) {
+    const next = { ...settings, notifs: { ...settings.notifs, security: enabled } };
+    saveSettings(next);
+    showToast(enabled
+      ? "Security alerts enabled. You'll be notified of unusual login activity."
+      : "Security alerts disabled.");
+  }
+
+  function handleTwoFactorToggle(enabled) {
+    if (enabled) {
+      setTwoFactorCode("");
+      setTwoFactorSetupOpen(true);
+      return;
+    }
+
+    setConfirmDisable2FA(true);
+  }
+
+  function confirmTwoFactorSetup() {
+    if (!/^\d{6}$/.test(twoFactorCode)) {
+      showToast("Enter the 6-digit code from your authenticator app.", "warning");
+      return;
+    }
+
+    const next = { ...settings, account: { ...settings.account, twoFactor: true } };
+    saveSettings(next);
+    setTwoFactorSetupOpen(false);
+    setTwoFactorCode("");
+    showToast("Two-factor authentication enabled.");
+  }
+
+  function disableTwoFactor() {
+    const next = { ...settings, account: { ...settings.account, twoFactor: false } };
+    saveSettings(next);
+    setConfirmDisable2FA(false);
+    showToast("Two-factor authentication disabled.");
+  }
+
+  function handlePublicProfile(enabled) {
+    const next = { ...settings, account: { ...settings.account, publicProfile: enabled } };
+    saveSettings(next);
+    showToast(enabled ? "Profile is now public." : "Profile is now private.");
+  }
+
+  function handleDataSharing(enabled) {
+    const next = { ...settings, account: { ...settings.account, dataSharing: enabled } };
+    saveSettings(next);
+    showToast(enabled ? "Usage data sharing enabled." : "Usage data sharing disabled.");
   }
 
   async function handleSaveAccount() {
@@ -113,19 +250,38 @@ export default function Settings() {
     <div>
       <PageHeader title="Settings" subtitle="Manage your preferences and account configuration." />
 
+      {toasts.length > 0 && (
+        <div style={{
+          position: "fixed", top: 76, right: 20, zIndex: 1000,
+          display: "flex", flexDirection: "column", gap: 10,
+        }}>
+          {toasts.map((toast) => (
+            <div
+              key={toast.id}
+              style={{
+                width: 330,
+                background: "var(--bg-surface)",
+                border: `1px solid ${toast.type === "warning" ? "rgba(245, 158, 11, 0.9)" : "var(--accent)"}`,
+                borderRadius: 8,
+                padding: "10px 14px",
+                color: toast.type === "warning" ? "#f59e0b" : "var(--accent)",
+                fontSize: 13,
+                boxShadow: "0 12px 30px rgba(0,0,0,0.22)",
+              }}
+            >
+              {toast.message}
+            </div>
+          ))}
+        </div>
+      )}
+
       {saved && (
-        <div
-          style={{
-            background: "rgba(110,231,183,0.12)",
-            border: "1px solid var(--accent)",
-            borderRadius: 8,
-            padding: "10px 16px",
-            marginBottom: 16,
-            color: "var(--accent)",
-            fontSize: 13,
-          }}
-        >
-          ✓ Settings saved successfully.
+        <div style={{
+          background: "rgba(110,231,183,0.12)", border: "1px solid var(--accent)",
+          borderRadius: 8, padding: "10px 16px", marginBottom: 16,
+          color: "var(--accent)", fontSize: 13,
+        }}>
+          Settings saved successfully.
         </div>
       )}
 
@@ -133,28 +289,19 @@ export default function Settings() {
         <Card title="Appearance" action={<FiSun style={{ color: "var(--text-muted)" }} />}>
           <div style={{ display: "flex", gap: 12 }}>
             {["dark", "light"].map((t) => (
-              <button
-                key={t}
-                onClick={theme !== t ? toggleTheme : undefined}
+              <button key={t} onClick={theme !== t ? toggleTheme : undefined}
                 style={{
-                  flex: 1,
-                  padding: 16,
-                  borderRadius: "var(--radius-sm)",
+                  flex: 1, padding: 16, borderRadius: "var(--radius-sm)",
                   border: `2px solid ${theme === t ? "var(--accent)" : "var(--border)"}`,
                   background: theme === t ? "rgba(110,231,183,0.08)" : "var(--bg-surface-2)",
-                  cursor: "pointer",
-                  transition: "all 0.2s",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 8,
+                  cursor: "pointer", transition: "all 0.2s",
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
                 }}
               >
-                {t === "dark" ? (
-                  <FiMoon style={{ fontSize: 22, color: theme === "dark" ? "var(--accent)" : "var(--text-muted)" }} />
-                ) : (
-                  <FiSun style={{ fontSize: 22, color: theme === "light" ? "var(--accent)" : "var(--text-muted)" }} />
-                )}
+                {t === "dark"
+                  ? <FiMoon style={{ fontSize: 22, color: theme === "dark" ? "var(--accent)" : "var(--text-muted)" }} />
+                  : <FiSun style={{ fontSize: 22, color: theme === "light" ? "var(--accent)" : "var(--text-muted)" }} />
+                }
                 <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{t === "dark" ? "Dark Mode" : "Light Mode"}</span>
                 {theme === t && <span style={{ fontSize: 11, color: "var(--accent)" }}>Active</span>}
               </button>
@@ -163,76 +310,132 @@ export default function Settings() {
         </Card>
 
         <Card title="Notifications" action={<FiBell style={{ color: "var(--text-muted)" }} />}>
-          <SettingRow
-            label="Email Notifications"
-            desc="Receive updates via email"
+          <SettingRow label="Email Notifications" desc="Receive updates via email"
             checked={settings.notifs.email}
-            onChange={(v) => updateSettings({ notifs: { ...settings.notifs, email: v } })}
-          />
-          <SettingRow
-            label="Push Notifications"
-            desc="Browser push notifications"
+            onChange={handleEmailNotifications} />
+          <SettingRow label="Push Notifications" desc="Browser push notifications"
             checked={settings.notifs.push}
-            onChange={(v) => updateSettings({ notifs: { ...settings.notifs, push: v } })}
-          />
-          <SettingRow
-            label="Marketing Emails"
-            desc="Product news and tips"
+            onChange={handlePushNotifications} />
+          <SettingRow label="Marketing Emails" desc="Product news and tips"
             checked={settings.notifs.marketing}
-            onChange={(v) => updateSettings({ notifs: { ...settings.notifs, marketing: v } })}
-          />
-          <SettingRow
-            label="Security Alerts"
-            desc="Unusual activity alerts"
+            onChange={handleMarketingEmails} />
+          <SettingRow label="Security Alerts" desc="Unusual activity alerts"
             checked={settings.notifs.security}
-            onChange={(v) => updateSettings({ notifs: { ...settings.notifs, security: v } })}
-          />
+            onChange={handleSecurityAlerts} />
         </Card>
 
         <Card title="Account" action={<FiUser style={{ color: "var(--text-muted)" }} />}>
           <div style={{ marginBottom: 16 }}>
             <div className="form-field">
               <label className="form-label">Display Name</label>
-              <input
-                className="form-input"
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              />
+              <input className="form-input" value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
             </div>
             <div className="form-field">
               <label className="form-label">Email</label>
-              <input
-                className="form-input"
-                value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-              />
+              <input className="form-input" value={form.email}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
             </div>
           </div>
           <Btn onClick={handleSaveAccount}>Save Changes</Btn>
         </Card>
 
         <Card title="Security" action={<FiShield style={{ color: "var(--text-muted)" }} />}>
-          <SettingRow
-            label="Two-Factor Authentication"
-            desc="Add extra layer of security"
+          <SettingRow label="Two-Factor Authentication" desc="Add extra layer of security"
             checked={settings.account.twoFactor}
-            onChange={(v) => updateSettings({ account: { ...settings.account, twoFactor: v } })}
-          />
-          <SettingRow
-            label="Public Profile"
-            desc="Make your profile visible to others"
+            onChange={handleTwoFactorToggle} />
+
+          {twoFactorSetupOpen && (
+            <div style={{
+              margin: "12px 0 6px", padding: 16, borderRadius: 8,
+              border: "1px solid var(--border)", background: "var(--bg-surface-2)",
+            }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", marginBottom: 10 }}>
+                Set up authenticator app
+              </div>
+              <div style={{
+                width: 126, height: 126, padding: 8, marginBottom: 12,
+                display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3,
+                background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 8,
+              }}>
+                {Array.from({ length: 49 }).map((_, index) => (
+                  <div
+                    key={index}
+                    style={{
+                      borderRadius: 2,
+                      background: [0, 1, 2, 7, 14, 16, 18, 21, 24, 28, 30, 32, 34, 38, 40, 42, 43, 44, 46].includes(index)
+                        ? "var(--accent)"
+                        : "transparent",
+                    }}
+                  />
+                ))}
+              </div>
+              <label className="form-label">Enter the 6-digit code from your authenticator app.</label>
+              <input
+                className="form-input"
+                inputMode="numeric"
+                maxLength={6}
+                value={twoFactorCode}
+                onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="000000"
+              />
+              <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+                <Btn onClick={confirmTwoFactorSetup}>Confirm</Btn>
+                <button
+                  onClick={() => {
+                    setTwoFactorSetupOpen(false);
+                    setTwoFactorCode("");
+                  }}
+                  style={{
+                    padding: "9px 14px", borderRadius: 8, border: "1px solid var(--border)",
+                    background: "var(--bg-surface)", color: "var(--text)", cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {confirmDisable2FA && (
+            <div style={{
+              margin: "12px 0 6px", padding: 16, borderRadius: 8,
+              border: "1px solid rgba(245, 158, 11, 0.65)", background: "rgba(245, 158, 11, 0.08)",
+            }}>
+              <div style={{ fontSize: 14, color: "var(--text)", marginBottom: 12 }}>
+                Are you sure you want to disable 2FA?
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button
+                  onClick={disableTwoFactor}
+                  style={{
+                    padding: "9px 14px", borderRadius: 8, border: "1px solid rgba(245, 158, 11, 0.65)",
+                    background: "rgba(245, 158, 11, 0.12)", color: "#f59e0b", cursor: "pointer",
+                  }}
+                >
+                  Confirm
+                </button>
+                <button
+                  onClick={() => setConfirmDisable2FA(false)}
+                  style={{
+                    padding: "9px 14px", borderRadius: 8, border: "1px solid var(--border)",
+                    background: "var(--bg-surface)", color: "var(--text)", cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          <SettingRow label="Public Profile" desc="Make your profile visible to others"
             checked={settings.account.publicProfile}
-            onChange={(v) => updateSettings({ account: { ...settings.account, publicProfile: v } })}
-          />
-          <SettingRow
-            label="Usage Data Sharing"
-            desc="Help improve Nexus"
+            onChange={handlePublicProfile} />
+          <SettingRow label="Usage Data Sharing" desc="Help improve Nexus"
             checked={settings.account.dataSharing}
-            onChange={(v) => updateSettings({ account: { ...settings.account, dataSharing: v } })}
-          />
+            onChange={handleDataSharing} />
         </Card>
       </div>
     </div>
   );
 }
-
