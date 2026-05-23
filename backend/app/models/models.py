@@ -3,7 +3,6 @@ from sqlalchemy.sql import func
 from ..core.db import Base
 
 
-
 class User(Base):
     __tablename__ = "users"
 
@@ -27,6 +26,10 @@ class User(Base):
     is_superuser = Column(Boolean, default=False)
 
     hashed_password = Column(String(255), nullable=False)
+
+    # --- 2FA (TOTP) ---
+    totp_secret = Column(String(64), nullable=True)
+    totp_enabled = Column(Boolean, default=False)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -55,6 +58,44 @@ class Setting(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
+
+
+class LoginLog(Base):
+    __tablename__ = "login_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    ip_address = Column(String(45), nullable=True)
+    user_agent = Column(String(500), nullable=True)
+    success = Column(Boolean, default=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class PushSubscription(Base):
+    __tablename__ = "push_subscriptions"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    endpoint = Column(Text, nullable=False)
+    p256dh = Column(String(255), nullable=False)
+    auth = Column(String(100), nullable=False)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 

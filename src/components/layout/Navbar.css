@@ -23,6 +23,8 @@
   color: var(--text-muted);
   font-size: 18px;
   transition: all 0.15s;
+  position: relative;
+  z-index: 1002;
 }
 .navbar__menu-btn:hover { background: var(--surface-strong); color: var(--text); }
 @media (max-width: 768px) { .navbar__menu-btn { display: flex; } }
@@ -46,6 +48,7 @@
   font-size: 17px;
   transition: all 0.15s;
   position: relative;
+  z-index: 1002;
 }
 .navbar__icon-btn:hover { background: var(--surface-strong); color: var(--text); }
 
@@ -77,3 +80,17 @@
   transition: all 0.15s;
 }
 .navbar__theme-btn:hover { background: var(--surface-strong); color: var(--text); }
+
+.navbar__dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  z-index: 1050;
+  overflow: hidden;
+  min-width: 180px;
+}
+
