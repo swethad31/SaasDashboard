@@ -6,7 +6,14 @@ from ..models.models import User
 from ..schemas.schemas import UserRead, UserCreate, UserUpdate
 from ..core import security
 from ..core.deps import get_current_user
+from fastapi import HTTPException
+from fastapi import Depends
 
+# --- Admin guard ---
+def get_admin_user(current_user: User = Depends(get_current_user)):
+    if not getattr(current_user, "is_superuser", False):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return current_user
 router = APIRouter(prefix="/users", tags=["users"])
 
 
@@ -24,7 +31,7 @@ def read_user(user_id: int, db: Session = Depends(get_db)):
     return user
 
 
-@router.post("/", response_model=UserRead, status_code=status.HTTP_201_CREATED, dependencies=[Depends(get_current_user)])
+@router.post("/", response_model=UserRead, status_code=status.HTTP_201_CREATED, dependencies=[Depends(get_admin_user)])
 def create_user(user_in: UserCreate, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.email == user_in.email).first()
     if existing:
@@ -36,7 +43,7 @@ def create_user(user_in: UserCreate, db: Session = Depends(get_db)):
     return user
 
 
-@router.put("/{user_id}", response_model=UserRead, dependencies=[Depends(get_current_user)])
+@router.put("/{user_id}", response_model=UserRead, dependencies=[Depends(get_admin_user)])
 def update_user(user_id: int, user_in: UserUpdate, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -51,7 +58,7 @@ def update_user(user_id: int, user_in: UserUpdate, db: Session = Depends(get_db)
     return user
 
 
-@router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(get_current_user)])
+@router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(get_admin_user)])
 def delete_user(user_id: int, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:

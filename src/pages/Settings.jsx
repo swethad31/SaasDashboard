@@ -99,11 +99,19 @@ export default function Settings() {
 
   const [settings, setSettings] = useState(() => readSettingsFromLocalStorage());
   const [form, setForm] = useState({ name: "", email: "" });
-  const [saved, setSaved] = useState(false);
+  const [savedMessage, setSavedMessage] = useState("");
   const [toasts, setToasts] = useState([]);
   const [twoFactorSetupOpen, setTwoFactorSetupOpen] = useState(false);
   const [twoFactorCode, setTwoFactorCode] = useState("");
   const [confirmDisable2FA, setConfirmDisable2FA] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    old_password: "",
+    new_password: "",
+    confirm_password: "",
+  });
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   useEffect(() => {
     setForm({ name: user?.name || "", email: user?.email || "" });
@@ -239,10 +247,50 @@ export default function Settings() {
     if (!form.name.trim()) return;
     try {
       await saveUser({ name: form.name.trim(), email: form.email.trim() });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2500);
+      setSavedMessage("Settings saved successfully.");
+      setTimeout(() => setSavedMessage(""), 2500);
     } catch (e) {
       console.error("Account save failed", e);
+    }
+  }
+
+  function resetPasswordForm() {
+    setPasswordForm({
+      old_password: "",
+      new_password: "",
+      confirm_password: "",
+    });
+    setPasswordError("");
+    setPasswordLoading(false);
+  }
+
+  async function handleChangePassword() {
+    setPasswordError("");
+
+    if (passwordForm.new_password.length < 8) {
+      setPasswordError("Password must be at least 8 characters");
+      return;
+    }
+
+    if (passwordForm.confirm_password !== passwordForm.new_password) {
+      setPasswordError("Confirm password must match new password");
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      await api.post("/profile/change-password", {
+        old_password: passwordForm.old_password,
+        new_password: passwordForm.new_password,
+      });
+      resetPasswordForm();
+      setPasswordOpen(false);
+      setSavedMessage("Password changed successfully.");
+      setTimeout(() => setSavedMessage(""), 2500);
+    } catch (e) {
+      setPasswordError(e?.response?.data?.detail || "Password change failed");
+    } finally {
+      setPasswordLoading(false);
     }
   }
 
@@ -275,13 +323,13 @@ export default function Settings() {
         </div>
       )}
 
-      {saved && (
+      {savedMessage && (
         <div style={{
           background: "rgba(110,231,183,0.12)", border: "1px solid var(--accent)",
           borderRadius: 8, padding: "10px 16px", marginBottom: 16,
           color: "var(--accent)", fontSize: 13,
         }}>
-          Settings saved successfully.
+          {savedMessage}
         </div>
       )}
 
@@ -338,6 +386,88 @@ export default function Settings() {
             </div>
           </div>
           <Btn onClick={handleSaveAccount}>Save Changes</Btn>
+          <div style={{ marginTop: 12 }}>
+            <button
+              onClick={() => {
+                setPasswordOpen((open) => !open);
+                setPasswordError("");
+              }}
+              style={{
+                background: "none",
+                border: "none",
+                padding: 0,
+                color: "var(--accent)",
+                fontSize: 13,
+                cursor: "pointer",
+              }}
+            >
+              Change Password
+            </button>
+          </div>
+
+          {passwordOpen && (
+            <div style={{
+              marginTop: 14,
+              paddingTop: 14,
+              borderTop: "1px solid var(--border)",
+            }}>
+              <div className="form-field">
+                <label className="form-label">Current Password</label>
+                <input
+                  className="form-input"
+                  type="password"
+                  value={passwordForm.old_password}
+                  onChange={(e) => setPasswordForm((f) => ({ ...f, old_password: e.target.value }))}
+                />
+              </div>
+              <div className="form-field">
+                <label className="form-label">New Password</label>
+                <input
+                  className="form-input"
+                  type="password"
+                  value={passwordForm.new_password}
+                  onChange={(e) => setPasswordForm((f) => ({ ...f, new_password: e.target.value }))}
+                />
+              </div>
+              <div className="form-field">
+                <label className="form-label">Confirm New Password</label>
+                <input
+                  className="form-input"
+                  type="password"
+                  value={passwordForm.confirm_password}
+                  onChange={(e) => setPasswordForm((f) => ({ ...f, confirm_password: e.target.value }))}
+                />
+              </div>
+
+              {passwordError && (
+                <div style={{ color: "#ef4444", fontSize: 12, marginBottom: 12 }}>
+                  {passwordError}
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <Btn onClick={handleChangePassword}>
+                  {passwordLoading ? "Changing..." : "Update Password"}
+                </Btn>
+                <button
+                  onClick={() => {
+                    resetPasswordForm();
+                    setPasswordOpen(false);
+                  }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    padding: 0,
+                    color: "var(--text-muted)",
+                    fontSize: 13,
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </Card>
 
         <Card title="Security" action={<FiShield style={{ color: "var(--text-muted)" }} />}>
@@ -431,7 +561,7 @@ export default function Settings() {
           <SettingRow label="Public Profile" desc="Make your profile visible to others"
             checked={settings.account.publicProfile}
             onChange={handlePublicProfile} />
-          <SettingRow label="Usage Data Sharing" desc="Help improve Nexus"
+          <SettingRow label="Usage Data Sharing" desc="Help improve ForceFabric"
             checked={settings.account.dataSharing}
             onChange={handleDataSharing} />
         </Card>

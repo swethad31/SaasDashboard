@@ -22,9 +22,14 @@ def verify_password(plain_password, hashed_password):
 def get_password_hash(password):
     return pbkdf2_sha256.hash(password)
 
+import uuid
+
 def create_access_token(data: dict, expires_delta: int | None = None):
     to_encode = data.copy()
+    # jti is used for server-side logout token revocation
+    to_encode["jti"] = str(uuid.uuid4())
     expire = datetime.utcnow() + timedelta(minutes=expires_delta or ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
