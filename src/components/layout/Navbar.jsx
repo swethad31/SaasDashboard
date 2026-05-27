@@ -3,6 +3,7 @@ import { useContext, useState, useRef, useEffect } from "react";
 import { FiMenu, FiBell, FiSearch, FiSun, FiMoon, FiX, FiSettings, FiUser, FiLogOut } from "react-icons/fi";
 import { ThemeContext } from "../../context/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
+import api from "../../services/api";
 import "./Navbar.css";
 
 const routeNames = {
@@ -11,53 +12,29 @@ const routeNames = {
   "/performance": "Performance", "/settings": "Settings", "/profile": "Profile",
 };
 
-const MOCK_NOTIFICATIONS = [
-  { id: 1, title: "Analytics updated", desc: "Netflix dataset refreshed with latest data.", time: "2 min ago", read: false },
-  { id: 2, title: "New user registered", desc: "A new admin account was created.", time: "1 hr ago", read: false },
-  { id: 3, title: "Report generated", desc: "Monthly content report is ready.", time: "3 hrs ago", read: true },
-  { id: 4, title: "Settings saved", desc: "Your preferences were updated.", time: "Yesterday", read: true },
-];
+function formatNotificationTime(createdAt) {
+  if (!createdAt) return "";
 
-const SETTINGS_NOTIFICATION_KEYS = ["emailNotifs", "pushNotifs", "securityAlerts"];
+  const created = new Date(createdAt);
+  if (Number.isNaN(created.getTime())) return "";
 
-function isEnabled(key) {
-  return localStorage.getItem(key) === "true";
+  const diffMs = Date.now() - created.getTime();
+  const diffMinutes = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMinutes / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMinutes < 1) return "Just now";
+  if (diffMinutes < 60) return `${diffMinutes} min ago`;
+  if (diffHours < 24) return `${diffHours} hr ago`;
+  if (diffDays === 1) return "Yesterday";
+  return `${diffDays} days ago`;
 }
 
-function buildNotifications() {
-  const settingsNotifications = [];
-
-  if (isEnabled("emailNotifs")) {
-    settingsNotifications.push({
-      id: "settings-email",
-      title: "Email Notifications",
-      desc: "You are subscribed to email updates.",
-      time: "Active",
-      read: false,
-    });
-  }
-
-  if (isEnabled("securityAlerts")) {
-    settingsNotifications.push({
-      id: "settings-security",
-      title: "Security Alerts Active",
-      desc: "You'll be alerted on new IP logins.",
-      time: "Active",
-      read: false,
-    });
-  }
-
-  if (isEnabled("pushNotifs")) {
-    settingsNotifications.push({
-      id: "settings-push",
-      title: "Push Notifications",
-      desc: "Browser push is enabled.",
-      time: "Active",
-      read: false,
-    });
-  }
-
-  return [...MOCK_NOTIFICATIONS, ...settingsNotifications];
+function normalizeNotification(notification) {
+  return {
+    ...notification,
+    time: formatNotificationTime(notification.created_at),
+  };
 }
 
 export default function Navbar({ onMenuClick }) {
@@ -70,7 +47,8 @@ export default function Navbar({ onMenuClick }) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [avatarOpen, setAvatarOpen] = useState(false);
-  const [notifications, setNotifications] = useState(() => buildNotifications());
+  const [notifications, setNotifications] = useState([]);
+  const [notifError, setNotifError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 
   const notifRef = useRef(null);
@@ -80,13 +58,32 @@ export default function Navbar({ onMenuClick }) {
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   useEffect(() => {
-    function syncSettingsNotifications(e) {
-      if (e.key && !SETTINGS_NOTIFICATION_KEYS.includes(e.key)) return;
-      setNotifications(buildNotifications());
+    let mounted = true;
+
+
+    async function fetchNotifications() {
+      try {
+        const res = await api.get("/notifications/");
+        if (mounted) {
+          setNotifications(res.data.map(normalizeNotification));
+          setNotifError("");
+        }
+      } catch (err) {
+        if (mounted) {
+          setNotifError("Unable to load notifications.");
+          setNotifications([]);
+        }
+        console.error("Failed to load notifications", err);
+      }
     }
 
-    window.addEventListener("storage", syncSettingsNotifications);
-    return () => window.removeEventListener("storage", syncSettingsNotifications);
+    fetchNotifications();
+    const intervalId = setInterval(fetchNotifications, 60000);
+
+    return () => {
+      mounted = false;
+      clearInterval(intervalId);
+    };
   }, []);
 
   // Close dropdowns on outside click
@@ -100,16 +97,26 @@ export default function Navbar({ onMenuClick }) {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  function markAllRead() {
+  async function markAllRead() {
     setNotifications((n) => n.map((x) => ({ ...x, read: true })));
+    try {
+      await api.patch("/notifications/read-all");
+    } catch (err) {
+      console.error("Failed to mark all notifications as read", err);
+    }
   }
 
   function clearNotifications() {
     setNotifications([]);
   }
 
-  function markRead(id) {
+  async function markRead(id) {
     setNotifications((n) => n.map((x) => (x.id === id ? { ...x, read: true } : x)));
+    try {
+      await api.patch(`/notifications/${id}/read`);
+    } catch (err) {
+      console.error("Failed to mark notification as read", err);
+    }
   }
 
   const pages = [
@@ -136,7 +143,7 @@ export default function Navbar({ onMenuClick }) {
           <FiMenu />
         </button>
         <div className="navbar__breadcrumb">
-          Nexus <span>&gt;</span> <strong>{pageName}</strong>
+          ForceFabric <span>&gt;</span> <strong>{pageName}</strong>
         </div>
       </div>
 
@@ -287,35 +294,40 @@ export default function Navbar({ onMenuClick }) {
                 </div>
               </div>
 
-              {notifications.map((n) => (
-                <div
-                  key={n.id}
-                  onClick={() => markRead(n.id)}
-                  style={{
-                    padding: "12px 16px",
-                    borderBottom: "1px solid var(--border)",
-                    cursor: "pointer",
-                    background: n.read ? "transparent" : "rgba(110,231,183,0.05)",
-                    transition: "background 0.15s",
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-strong)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = n.read ? "transparent" : "rgba(110,231,183,0.05)")}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{n.title}</span>
-                    {!n.read && (
-                      <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--accent)", flexShrink: 0, marginTop: 4 }} />
-                    )}
-                  </div>
-                  <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>{n.desc}</div>
-                  <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{n.time}</div>
-                </div>
-              ))}
-
-              {notifications.length === 0 ? (
+              {notifError ? (
+                <div style={{ padding: "16px", fontSize: 13, color: "var(--error, #e57373)", textAlign: "center" }}>{notifError}</div>
+              ) : notifications.length === 0 ? (
                 <div style={{ padding: "16px", fontSize: 13, color: "var(--text-muted)", textAlign: "center" }}>No notifications.</div>
-              ) : notifications.every((n) => n.read) && (
-                <div style={{ padding: "16px", fontSize: 13, color: "var(--text-muted)", textAlign: "center" }}>All caught up!</div>
+              ) : (
+                <>
+                  {notifications.map((n) => (
+                    <div
+                      key={n.id}
+                      onClick={() => markRead(n.id)}
+                      style={{
+                        padding: "12px 16px",
+                        borderBottom: "1px solid var(--border)",
+                        cursor: "pointer",
+                        background: n.read ? "transparent" : "rgba(110,231,183,0.05)",
+                        transition: "background 0.15s",
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-strong)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = n.read ? "transparent" : "rgba(110,231,183,0.05)")}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{n.title}</span>
+                        {!n.read && (
+                          <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--accent)", flexShrink: 0, marginTop: 4 }} />
+                        )}
+                      </div>
+                      <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>{n.desc}</div>
+                      <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{n.time}</div>
+                    </div>
+                  ))}
+                  {notifications.every((n) => n.read) && (
+                    <div style={{ padding: "16px", fontSize: 13, color: "var(--text-muted)", textAlign: "center" }}>All caught up!</div>
+                  )}
+                </>
               )}
             </div>
           )}

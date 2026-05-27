@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../services/api";
 import {
   BarChart,
   Bar,
@@ -24,8 +24,8 @@ export default function Analytics() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    axios
-      .get("/api/dashboard/analytics")
+    api
+      .get("/dashboard/analytics")
       .then((res) => {
         const d = res.data;
         if (!d || !Array.isArray(d.labels) || d.labels.length === 0) {

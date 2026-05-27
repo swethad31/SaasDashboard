@@ -17,11 +17,25 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     try:
         payload = jwt.decode(token, config.SECRET_KEY, algorithms=[config.ALGORITHM])
         user_id: int = payload.get("sub")
+        jti: str | None = payload.get("jti")
         if user_id is None:
             raise credentials_exception
     except JWTError:
         raise credentials_exception
+
+    if jti:
+        from ..models.models import RevokedToken
+
+        revoked = db.query(RevokedToken).filter(RevokedToken.jti == jti).first()
+        if revoked:
+            raise credentials_exception
+
+
+
+
     user = db.query(User).filter(User.id == int(user_id)).first()
+
     if user is None:
         raise credentials_exception
     return user
+

@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from .core.db import engine
 from .core.db import Base
 
-from .routers import auth, users, dashboard, reports, settings, profile
+from .routers import auth, users, dashboard, reports, settings as settings_router, profile, notifications
 
 # Import additional models so SQLAlchemy metadata includes them for `create_all()`.
 from .models.netflix_title import NetflixTitle
@@ -30,13 +30,19 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="SaaS Dashboard API", lifespan=lifespan)
+from .routers.auth import limiter, rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+
+from .core.config import settings
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=settings.allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 
@@ -45,6 +51,7 @@ app.include_router(users.router)
 app.include_router(dashboard.public_router)
 app.include_router(dashboard.router)
 app.include_router(reports.router)
-app.include_router(settings.router)
+app.include_router(settings_router.router)
 app.include_router(profile.router)
+app.include_router(notifications.router)
 

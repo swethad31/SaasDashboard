@@ -12,3 +12,5 @@ python-multipart
 pandas
 openpyxl
 bcrypt
+pyotp>=2.9.0
+slowapi>=0.1.9

@@ -22,9 +22,10 @@ export default function Login() {
     try {
       if (mode === "register") {
         await register(form.email, form.password, form.name);
+        await login(form.email, form.password);
+      } else {
+        await login(form.email, form.password);
       }
-
-      await login(form.email, form.password);
     } catch (err) {
       setError(err?.response?.data?.detail || "Invalid credentials.");
     } finally {
@@ -78,8 +79,8 @@ export default function Login() {
               marginBottom: 4,
             }}
           >
-            Nexus
-          </h1>
+            
+            ForceFabric          </h1>
           <p style={{ color: "var(--text-muted)", fontSize: 14 }}>
             Sign in to your dashboard
           </p>
@@ -119,7 +120,7 @@ export default function Login() {
           <input
             className="form-input"
             type="email"
-            placeholder="admin@nexus.app"
+            placeholder="admin@forcefabric.app"
             value={form.email}
             onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
             onKeyDown={(e) => e.key === "Enter" && handleSubmit()}

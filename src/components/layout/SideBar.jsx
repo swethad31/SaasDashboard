@@ -38,8 +38,8 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
       <aside className={cls}>
         {/* Logo */}
         <div className="sidebar__logo">
-          <div className="sidebar__logo-icon">N</div>
-          <span className="sidebar__logo-text">Nexus</span>
+          <div className="sidebar__logo-icon">FF</div>
+          <span className="sidebar__logo-text">ForceFabric</span>
         </div>
 
         {/* Nav */}
